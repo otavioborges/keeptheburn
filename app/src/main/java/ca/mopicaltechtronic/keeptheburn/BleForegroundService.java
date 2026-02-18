@@ -16,7 +16,9 @@ import android.bluetooth.BluetoothProfile;
 import android.content.Intent;
 import android.graphics.Color;
 import android.media.MediaPlayer;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -35,6 +37,8 @@ public class BleForegroundService extends Service {
 
     private NotificationManager notifManager;
     private BluetoothGatt gatt = null;
+    private Runnable timeoutConnection;
+    private final Handler timeoutHandler = new Handler(Looper.getMainLooper());
     private int maxHr;
     private int minHr;
     private boolean wasLow = false;
@@ -47,7 +51,7 @@ public class BleForegroundService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if ("STOP_SERVICE".equals(intent.getAction())) {
-            stopSelf();
+            stopServiceCleanly();
             return START_NOT_STICKY;
         }
 
@@ -78,12 +82,23 @@ public class BleForegroundService extends Service {
             lowHrPlayer.release();
         if (highHrPlayer != null)
             highHrPlayer.release();
+
+        Intent intent = new Intent("HR_UPDATE");
+        intent.setPackage(getPackageName());
+        intent.putExtra("status", "terminated");
+
+        sendBroadcast(intent);
     }
 
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
         return null;
+    }
+
+    private void stopServiceCleanly() {
+        stopForeground(true);
+        stopSelf();
     }
 
     private void createNotificationChannel() {
@@ -139,6 +154,7 @@ public class BleForegroundService extends Service {
 
     private void doBusinessLogic(int hr) {
         Intent intent = new Intent("HR_UPDATE");
+        intent.setPackage(getPackageName());
         intent.putExtra("heart_rate", hr);
 
         sendBroadcast(intent);
@@ -189,6 +205,19 @@ public class BleForegroundService extends Service {
         BluetoothDevice device = adapter.getRemoteDevice(mac);
 
         gatt = device.connectGatt(this, false, gattCallback);
+        timeoutConnection = new Runnable() {
+            @Override
+            public void run() {
+                Intent intent = new Intent("HR_UPDATE");
+                intent.setPackage(getPackageName());
+                intent.putExtra("status", "timeout");
+                sendBroadcast(intent);
+
+                stopServiceCleanly();
+            }
+        };
+
+        timeoutHandler.postDelayed(timeoutConnection, 10000);
     }
 
     private BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
@@ -196,8 +225,21 @@ public class BleForegroundService extends Service {
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
             super.onConnectionStateChange(gatt, status, newState);
 
+            timeoutHandler.removeCallbacks(timeoutConnection);
             if (newState == BluetoothProfile.STATE_CONNECTED) {
+                Intent intent = new Intent("HR_UPDATE");
+                intent.setPackage(getPackageName());
+                intent.putExtra("status", "services");
+                sendBroadcast(intent);
+
                 gatt.discoverServices();
+            } else if (newState == BluetoothProfile.STATE_DISCONNECTING || newState == BluetoothProfile.STATE_DISCONNECTED) {
+                Intent intent = new Intent("HR_UPDATE");
+                intent.setPackage(getPackageName());
+                intent.putExtra("status", "disconnected");
+                sendBroadcast(intent);
+
+                stopServiceCleanly();
             }
         }
 
@@ -207,6 +249,11 @@ public class BleForegroundService extends Service {
             BluetoothGattCharacteristic characteristic = service.getCharacteristic(HR_MEASUREMENT_UUID);
 
             enableNotify(gatt, characteristic);
+
+            Intent intent = new Intent("HR_UPDATE");
+            intent.setPackage(getPackageName());
+            intent.putExtra("status", "connected");
+            sendBroadcast(intent);
         }
 
         @Override

@@ -62,13 +62,13 @@ public class activity_ble_scan extends AppCompatActivity {
 
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
         if (adapter == null) {
-            Toast.makeText(this, "Unable to retrieve bluetooth adapter", Toast.LENGTH_LONG);
+            Toast.makeText(this, "Unable to retrieve bluetooth adapter", Toast.LENGTH_LONG).show();
             finish();
             return;
         }
 
         if (!adapter.isEnabled()) {
-            Toast.makeText(this, "Bluetooth is disabled, unable to scan", Toast.LENGTH_LONG);
+            Toast.makeText(this, "Bluetooth is disabled, unable to scan", Toast.LENGTH_LONG).show();
             finish();
             return;
         }
@@ -79,7 +79,7 @@ public class activity_ble_scan extends AppCompatActivity {
 
     private void startScan() {
         handler.postDelayed(() -> {
-            Toast.makeText(context, "Stoping BLE scan...", Toast.LENGTH_LONG);
+            Toast.makeText(context, "Stoping BLE scan...", Toast.LENGTH_LONG).show();
             stopScan();
         }, SCAN_PERIOD);
 

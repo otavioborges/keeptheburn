@@ -9,6 +9,7 @@ import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -28,6 +29,10 @@ public class MainActivity extends AppCompatActivity implements HeartRateView {
     private BleHeartRateManager ble_manager;
     private ActivityResultLauncher<String[]> permissionLauncher;
 
+    private MaterialButton btnConnect;
+    private ProgressBar pgConnecting;
+    private HeartRateView activity;
+
     AppPreferences preferences;
 
     @Override
@@ -40,18 +45,17 @@ public class MainActivity extends AppCompatActivity implements HeartRateView {
         etBottomHr = findViewById(R.id.etBottomHr);
 
         MaterialButton btnAddDevice = findViewById(R.id.btnAddDevice);
-        FloatingActionButton fabAddDevice = findViewById(R.id.fabAddDevice);
-        MaterialButton btnConnect = findViewById(R.id.btnConnect);
+        btnConnect = findViewById(R.id.btnConnect);
+        pgConnecting = findViewById(R.id.progressBar);
 
         btnAddDevice.setOnClickListener(v -> {
             launchScanActivity(this);
         });
 
-        fabAddDevice.setOnClickListener(v -> {
-            launchScanActivity(this);
-        });
-
         btnConnect.setOnClickListener(v -> {
+            btnConnect.setEnabled(false);
+            btnConnect.setText("");
+            pgConnecting.setVisibility(ProgressBar.VISIBLE);
             initBleConnection();
         });
 
@@ -168,7 +172,7 @@ public class MainActivity extends AppCompatActivity implements HeartRateView {
 
             ContextCompat.startForegroundService(this, serviceIntent);
         } else {
-            Toast.makeText(this, "Device was not yet set.", Toast.LENGTH_LONG);
+            Toast.makeText(this, "Device was not yet set.", Toast.LENGTH_LONG).show();
         }
     }
 
@@ -220,11 +224,44 @@ public class MainActivity extends AppCompatActivity implements HeartRateView {
         @Override
         public void onReceive(Context context, Intent intent) {
 
-            int hr = intent.getIntExtra("heart_rate", 0);
+            if (intent.hasExtra("heart_rate")) {
+                int hr = intent.getIntExtra("heart_rate", 0);
+                runOnUiThread(() -> {
+                    tvHeartRate.setText(hr + " bpm");
+                });
+            } else if (intent.hasExtra("status")) {
+                String status = intent.getStringExtra("status");
+                if (status == null)
+                    return;
 
-            runOnUiThread(() -> {
-                tvHeartRate.setText(hr + " bpm");
-            });
+                switch (status) {
+                    case "timeout":
+                        Toast.makeText(context, "Couldn't find HR device", Toast.LENGTH_LONG).show();
+                        btnConnect.setText("Connect");
+                        btnConnect.setEnabled(true);
+                        pgConnecting.setVisibility(ProgressBar.GONE);
+                        break;
+                    case "services":
+                        Toast.makeText(context, "Device found, connecting...", Toast.LENGTH_LONG).show();
+                        break;
+                    case "disconnected":
+                        Toast.makeText(context, "HR device disconnected", Toast.LENGTH_LONG).show();
+                        btnConnect.setText("Connect");
+                        btnConnect.setEnabled(true);
+                        pgConnecting.setVisibility(ProgressBar.GONE);
+                        break;
+                    case "connected":
+                        btnConnect.setText("Connected");
+                        pgConnecting.setVisibility(ProgressBar.GONE);
+                        break;
+                    case "terminated":
+                        Toast.makeText(context, "HR monitoring stopped", Toast.LENGTH_LONG).show();
+                        btnConnect.setText("Connect");
+                        btnConnect.setEnabled(true);
+                        pgConnecting.setVisibility(ProgressBar.GONE);
+                        break;
+                }
+            }
         }
     };
 }
