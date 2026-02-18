@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <!-- Current HR Card -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/hrCard"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:cardCornerRadius="16dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="24dp"
+            android:gravity="center">
+
+            <TextView
+                android:text="Current Heart Rate"
+                android:textSize="18sp" android:layout_height="30dp" android:layout_width="match_parent"/>
+
+            <TextView
+                android:id="@+id/tvHeartRate"
+                android:text="-- bpm"
+                android:textSize="40sp"
+                android:textStyle="bold"
+                android:layout_marginTop="8dp" android:layout_height="80dp" android:layout_width="match_parent"/>
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+
+    <!-- Top HR Input -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/topHrLayout"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:hint="Top Heart Rate"
+        app:layout_constraintTop_toBottomOf="@id/hrCard"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="24dp">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etTopHr"
+            android:inputType="number"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+    </com.google.android.material.textfield.TextInputLayout>
+
+
+    <!-- Bottom HR Input -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/bottomHrLayout"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:hint="Bottom Heart Rate"
+        app:layout_constraintTop_toBottomOf="@id/topHrLayout"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="16dp">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etBottomHr"
+            android:inputType="number"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+    </com.google.android.material.textfield.TextInputLayout>
+
+
+    <!-- Add BLE Device Button -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnAddDevice"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Add BLE Device"
+        android:layout_marginTop="24dp"
+        app:layout_constraintTop_toBottomOf="@id/bottomHrLayout"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+
+    <!-- Floating + Button -->
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnConnect"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:text="Connect"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/btnAddDevice" />
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabAddDevice"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:contentDescription="Add device"
+        android:src="@android:drawable/ic_input_add"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
