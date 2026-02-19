@@ -15,16 +15,29 @@ import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothProfile;
 import android.content.Intent;
 import android.graphics.Color;
+import android.location.Location;
 import android.media.MediaPlayer;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.util.Log;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.Priority;
+
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.UUID;
 
 public class BleForegroundService extends Service {
@@ -48,6 +61,13 @@ public class BleForegroundService extends Service {
 
     private PendingIntent stopPendingIntent = null;
 
+    private FusedLocationProviderClient fusedClient;
+    private Location currentLocation;
+    private BufferedWriter saveData = null;
+    private int file_tries;
+    private long tryDelay = -1;
+
+
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if ("STOP_SERVICE".equals(intent.getAction())) {
@@ -55,11 +75,20 @@ public class BleForegroundService extends Service {
             return START_NOT_STICKY;
         }
 
+        file_tries = 5;
         createNotificationChannel();
         startForeground(NOTIFICATION_ID, createNotification());
 
         lowHrPlayer = MediaPlayer.create(this, R.raw.power_up);
         highHrPlayer = MediaPlayer.create(this, R.raw.power_down);
+
+        fusedClient = LocationServices.getFusedLocationProviderClient(this);
+        LocationRequest request = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000L)
+                        .setMinUpdateDistanceMeters(0.5f)
+                        .setMinUpdateIntervalMillis(500L)
+                        .build();
+
+        fusedClient.requestLocationUpdates(request, locationCallback, Looper.getMainLooper());
 
         minHr = intent.getIntExtra("min_hr", 0);
         maxHr = intent.getIntExtra("max_hr", 220);
@@ -82,6 +111,17 @@ public class BleForegroundService extends Service {
             lowHrPlayer.release();
         if (highHrPlayer != null)
             highHrPlayer.release();
+
+        if (saveData != null) {
+            try {
+                saveData.flush();
+                saveData.close();
+            } catch (IOException e) {
+                Log.e("KEEP", "Error closing session file: " + e.getMessage());
+            }
+
+            saveData = null;
+        }
 
         Intent intent = new Intent("HR_UPDATE");
         intent.setPackage(getPackageName());
@@ -152,10 +192,68 @@ public class BleForegroundService extends Service {
         return characteristic.getIntValue(format, 1);
     }
 
+    private boolean openFile() {
+        try {
+            File dir = getExternalFilesDir("workout");
+            if (dir == null)
+                return false;
+
+            dir.mkdirs();
+            File file = new File(dir, "session_" + System.currentTimeMillis() + ".csv");
+            saveData = new BufferedWriter(new FileWriter(file, true));
+            saveData.write("timestamp,heart_rate,lat,lon,alt\n");
+            saveData.flush();
+        } catch (Exception e) {
+            Log.e("KEEP", "Error trying to open log file:" + e.getMessage());
+            return false;
+        }
+
+        return true;
+    }
+
+    private void saveReading(int hr) {
+        if (currentLocation == null) return;
+
+        long timestamp = System.currentTimeMillis();
+
+        try {
+            saveData.write(
+                    timestamp + "," +
+                            hr + "," +
+                            currentLocation.getLatitude() + "," +
+                            currentLocation.getLongitude() + "," +
+                            currentLocation.getAltitude() + "\n"
+            );
+            saveData.flush();
+        } catch (IOException e) {
+            Log.e("KEEP", "Error trying to save entry to session file");
+        }
+    }
+
+
     private void doBusinessLogic(int hr) {
         Intent intent = new Intent("HR_UPDATE");
         intent.setPackage(getPackageName());
         intent.putExtra("heart_rate", hr);
+
+        if (saveData == null) {
+            if (file_tries > 0) {
+                if ((tryDelay < 0) || ((System.currentTimeMillis() - tryDelay) > 1000)) {
+                    if (!openFile()) {
+                        Log.e("KEEP", "Error trying to open file to save session");
+                        tryDelay = System.currentTimeMillis();
+                        file_tries--;
+                    } else {
+                        file_tries = 5;
+                        tryDelay = -1;
+                    }
+                }
+            }
+        } else {
+            if ((tryDelay < 0) || ((System.currentTimeMillis() - tryDelay) > 500)) {
+                saveReading(hr);
+            }
+        }
 
         sendBroadcast(intent);
         /* play some sounds boi! */
@@ -219,6 +317,14 @@ public class BleForegroundService extends Service {
 
         timeoutHandler.postDelayed(timeoutConnection, 10000);
     }
+
+    private final LocationCallback locationCallback = new LocationCallback() {
+        @Override
+        public void onLocationResult(LocationResult result) {
+            currentLocation = result.getLastLocation();
+        }
+    };
+
 
     private BluetoothGattCallback gattCallback = new BluetoothGattCallback() {
         @Override
